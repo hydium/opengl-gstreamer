@@ -1,0 +1,16 @@
+#version 330 core
+
+// Ouput data
+out vec4 color;
+in vec2 TexCoord;
+
+uniform sampler2D ourTexture;
+
+void main()
+{
+
+	// Output color = red 
+	// color = vec3(1,0,0);
+	color = texture(ourTexture, TexCoord);
+
+}
