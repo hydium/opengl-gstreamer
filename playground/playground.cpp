@@ -18,6 +18,19 @@ GLFWwindow* window;
 #include <chrono>
 #include <ctime>
 
+// #include <iterator>
+#include <iostream>
+
+#include <vector>
+
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+using namespace glm;
+
+using namespace std;
 
 int main( void )
 {
@@ -40,24 +53,6 @@ int main( void )
 	// 		*(image + ( i * width * 3 + j * 3 + 2)) = (GLubyte) c;
 	// 	}
 	// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 	// Initialise GLFW
@@ -108,21 +103,175 @@ int main( void )
 
 
 
-	static const GLfloat g_vertex_buffer_data[] = { 
-		-1.0f, -1.0f, 0.0f,   0.0f, 1.0f,
-		 1.0f, -1.0f, 0.0f,   1.0f, 1.0f,
-		-1.0f,  1.0f, 0.0f,	  0.0f, 0.0f,
+	// static const GLfloat g_vertex_buffer_data[] = { 
+	// 	-1.0f, -1.0f, 0.0f,   0.0f, 1.0f,
+	// 	 1.0f, -1.0f, 0.0f,   1.0f, 1.0f,
+	// 	-1.0f,  1.0f, 0.0f,	  0.0f, 0.0f,
 
-		 1.0f,  1.0f, 0.0f,	  1.0f, 0.0f,
-		 1.0f, -1.0f, 0.0f,	  1.0f, 1.0f,
-		-1.0f,  1.0f, 0.0f,   0.0f, 0.0f,
-	};
+	// 	 1.0f,  1.0f, 0.0f,	  1.0f, 0.0f,
+	// 	 1.0f, -1.0f, 0.0f,	  1.0f, 1.0f,
+	// 	-1.0f,  1.0f, 0.0f,   0.0f, 0.0f,
+	// };
+
+	// GLfloat vertices[] = { 
+	// 	-1.0f, -1.0f, 0.0f,
+	// 	 1.0f, -1.0f, 0.0f,
+	// 	-1.0f,  1.0f, 0.0f,
+	// 	 1.0f,  1.0f, 0.0f,
+	// };
+
+
+	// GLuint indices[] = {  // note that we start from 0!
+ //    	0, 1, 2,   // first triangle
+ //    	1, 2, 3    // second triangle
+	// }; 
+
+
+
+	const int cols = 256;
+	const int rows = 256;
+
+
+	// cout << 128.0f / (float) rows << endl;
+
+	GLfloat g_vertex_buffer_data[rows * cols * 3];
+
+	for (int col = 0; col < cols; col++)
+	{
+		for (int row = 0; row < rows; row++)
+		{
+			g_vertex_buffer_data[3 * (col * rows + row)] = (float) col / (float) (cols - 1) * 2 - 1.0f;
+			g_vertex_buffer_data[3 * (col * rows + row) + 1] = (float) row / (float) (rows - 1) * 2 - 1.0f;
+			g_vertex_buffer_data[3 * (col * rows + row) + 2] = 0;
+		}
+	}
+
 
 
 	GLuint vertexbuffer;
 	glGenBuffers(1, &vertexbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * rows * cols* 3, g_vertex_buffer_data, GL_STATIC_DRAW);
+
+
+
+	GLfloat g_uv_buffer_data[rows * cols * 2];
+
+	for (int col = 0; col < cols; col++)
+	{
+		for (int row = 0; row < rows; row++)
+		{
+			g_uv_buffer_data[2 * (col * rows + row)] = (float) col / (float) cols ;
+			g_uv_buffer_data[2 * (col * rows + row) + 1] = (float) row / (float) rows;
+		}
+	}
+
+
+	//distortion correction by changing uv coordinates
+	for (int col = 0; col < cols; col++)
+	{
+		for (int row = 0; row < rows; row++)
+		{
+			float x = g_uv_buffer_data[2 * (col * rows + row)] ;
+			float y = g_uv_buffer_data[2 * (col * rows + row) + 1];
+
+			x = x * 2.0f - 1.0f;
+			y = y * 2.0f - 1.0f;
+
+			float xyz_[3] ;
+
+			xyz_[0] = x;
+			xyz_[1] = y;
+			xyz_[2] = 1;
+
+
+			// mat3 xyz = make_mat3(xyz_);
+			tvec3<float> xyz = make_vec3(xyz_);
+
+
+			// float cameraMatrix_[3][3] = {{753.349186340502,	0,	1010.31833065182},
+			// 						  {0,	753.143587767122,	588.647123579411},
+			// 						  {0,	0,	1}};
+
+			float cameraMatrix_[9] = {753.349186340502,	0,	1010.31833065182,
+									  0,	753.143587767122,	588.647123579411,
+									  0,	0,	1};
+
+			
+
+			mat3 cameraMatrix = transpose(make_mat3(cameraMatrix_));
+
+
+
+			// float one_[3] = {0, 0, 1};
+
+			// tvec3<float> one = make_vec3(one_);
+
+			// one = cameraMatrix * one;
+
+			// cout << one[0] << endl;
+			// cout << one[1] << endl;
+			// cout << one[2] << endl;
+			
+			
+
+			xyz = xyz * inverse(cameraMatrix);
+
+			float r2 = pow(xyz[0], 2) + pow(xyz[1], 2);
+
+			double dist[5] = {-0.358074811139381, 0.150366096279157, -0.000239617440106,	-0.001364488806427,	-0.031502910462795};
+
+			// xyz = xyz / (1 + r2 * dist[0] + pow(r2, 2) * dist[1] + pow(r2, 3) * dist[4]);
+
+			// tvec3<float> xyz1;
+
+			xyz[0] = xyz[0] / (1 + r2 * dist[0] + pow(r2, 2) * dist[1] + pow(r2, 3) * dist[4]);
+			xyz[1] = xyz[1] / (1 + r2 * dist[0] + pow(r2, 2) * dist[1] + pow(r2, 3) * dist[4]);
+
+			xyz = xyz * cameraMatrix;
+ 			
+ 			g_uv_buffer_data[2 * (col * rows + row)] = xyz[0];
+ 			g_uv_buffer_data[2 * (col * rows + row) + 1] = xyz[1];
+
+		}
+	}
+
+
+
+	GLuint uvbuffer;
+	glGenBuffers(1, &uvbuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * rows * cols * 2, g_uv_buffer_data, GL_STATIC_DRAW);
+
+
+	vector<GLuint> indices((cols - 1) * (rows - 1) * 6);
+	
+
+
+	int index = 0;
+
+
+	for (int col = 0; col < cols - 1; col++)
+	{
+		for (int row = 0; row < rows - 1; row++)
+		{
+			indices[index] = col * rows + row;
+			indices[index + 1] = col * rows + row + 1;
+			indices[index + 2] = (col + 1) * rows + row;
+			indices[index + 3] = (col + 1) * rows + row;
+			indices[index + 4] = col * rows + row + 1;
+			indices[index + 5] = (col + 1) * rows + row + 1;
+
+			index += 6;
+		}
+	}
+
+
+	GLuint elementbuffer;
+	glGenBuffers(1, &elementbuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+
 
 	GLuint texture;
 	glGenTextures(1, &texture);
@@ -137,6 +286,28 @@ int main( void )
 
 
 
+	// glEnableVertexAttribArray(0);
+	// glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+	// glVertexAttribPointer(
+	// 	0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+	// 	3,                  // size
+	// 	GL_FLOAT,           // type
+	// 	GL_FALSE,           // normalized?
+	// 	5 * sizeof(float),  // stride
+	// 	(void*)0            // array buffer offset
+	// );
+
+	// glEnableVertexAttribArray(1);
+	// glVertexAttribPointer(
+	// 	1,                  // attribute 1. No particular reason for 1, but must match the layout in the shader.
+	// 	2,                  // size
+	// 	GL_FLOAT,           // type
+	// 	GL_FALSE,           // normalized?
+	// 	5 * sizeof(float),  // stride
+	// 	(void*) (3 * sizeof(float))            // array buffer offset
+	// );
+
+
 	glEnableVertexAttribArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
 	glVertexAttribPointer(
@@ -144,19 +315,24 @@ int main( void )
 		3,                  // size
 		GL_FLOAT,           // type
 		GL_FALSE,           // normalized?
-		5 * sizeof(float),  // stride
+		3 * sizeof(float),  // stride
 		(void*)0            // array buffer offset
 	);
 
+
+
+
 	glEnableVertexAttribArray(1);
+	glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
 	glVertexAttribPointer(
 		1,                  // attribute 1. No particular reason for 1, but must match the layout in the shader.
 		2,                  // size
 		GL_FLOAT,           // type
 		GL_FALSE,           // normalized?
-		5 * sizeof(float),  // stride
-		(void*) (3 * sizeof(float))            // array buffer offset
+		2 * sizeof(float),  // stride
+		(void*)0            // array buffer offset
 	);
+
 
 
 
@@ -169,7 +345,7 @@ int main( void )
 	gst_init (NULL, NULL);
 
 
-	pipeline = gst_parse_launch("v4l2src device=/dev/video0 ! image/jpeg, width=1920, height=1080, pixel-aspect-ratio=1/1, framerate=60/1 ! jpegdec ! videoconvert ! video/x-raw, width=1920, height=1080, format=\"RGB\" ! appsink name=appsink", &error);
+	pipeline = gst_parse_launch("v4l2src device=/dev/video2 ! image/jpeg, width=1920, height=1080, pixel-aspect-ratio=1/1, framerate=30/1 ! jpegdec ! videoconvert ! video/x-raw, width=1920, height=1080, format=\"RGB\" ! appsink name=appsink", &error);
 	
 
 	if (error != NULL) {
@@ -229,7 +405,8 @@ int main( void )
 		glBindTexture(GL_TEXTURE_2D, texture);
 
 		// Draw the triangle !
-		glDrawArrays(GL_TRIANGLES, 0, 6); // 3 indices starting at 0 -> 1 triangle
+		// glDrawArrays(GL_TRIANGLES, 0, 6); // 3 indices starting at 0 -> 1 triangle
+		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, (void*) 0);
 
 
 		if (prev_sample) {
